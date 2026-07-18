@@ -641,7 +641,7 @@ function loop(timestamp) {
   const dt = Math.min(timer.getDelta(), 1 / 30);
   const t = timer.getElapsed();
 
-  // autoplay: after a quiet spell, walk the shelf forward one notebook
+  // After a quiet spell, move one notebook at a time and let it hold center.
   if (
     !reducedMotion &&
     !dragging &&
@@ -663,14 +663,23 @@ function loop(timestamp) {
     sPos = sTarget;
     shelfVelocity = 0;
   } else {
-    // A lightly under-damped spring gives paper-like follow-through and a
-    // restrained 2–4% overshoot, independent of 60Hz/120Hz refresh rates.
+    // Desktop keeps the paper-like follow-through. Mobile uses a critically
+    // damped curve so each notebook accelerates and settles without bouncing.
     const stiffness = mobileMQ.matches ? 220 : 170;
-    const damping = mobileMQ.matches ? 22 : 18;
+    const damping = mobileMQ.matches ? 31 : 18;
     const acceleration = (sTarget - sPos) * stiffness - shelfVelocity * damping;
     shelfVelocity += acceleration * dt;
     shelfVelocity = THREE.MathUtils.clamp(shelfVelocity, -8, 8);
     sPos += shelfVelocity * dt;
+    if (
+      mobileMQ.matches &&
+      !dragging &&
+      Math.abs(sTarget - sPos) < 0.0005 &&
+      Math.abs(shelfVelocity) < 0.01
+    ) {
+      sPos = sTarget;
+      shelfVelocity = 0;
+    }
   }
 
   // Premium idle choreography: a long, quiet movement followed by a genuine
@@ -709,27 +718,39 @@ function loop(timestamp) {
       ? 0
       : Math.sin(poseT * 0.42) * 0.01 * idleEnvelope;
     // horizontal shelf: books roll in from the side, stand at center
-    const spacing = TRAVEL * (mobileMQ.matches ? 0.85 : 1);
+    const isMobile = mobileMQ.matches;
+    const mobileSpacing = phi > 0 ? 0.55 : 0.61;
+    const spacing = TRAVEL * (isMobile ? mobileSpacing : 1);
+    const depth = isMobile ? 1.05 : 0.9;
+    const separation = isMobile
+      ? Math.sin(Math.min(Math.abs(phi), 1) * Math.PI) * 0.22
+      : 0;
     w.position.set(
-      phi * spacing + pose.x * focus,
+      phi * spacing + Math.sign(phi) * separation + pose.x * focus,
       0.3 + (bob + pose.y) * focus,
-      -0.9 * phi * phi
+      -depth * phi * phi
     );
     w.rotation.set(
       UPRIGHT_X + pose.pitch * focus,
       THREE.MathUtils.lerp(REST_YAW, pose.yaw, focus) + sway * focus,
-      0.06 + phi * (Math.PI / 2) + (breathe + pose.roll) * focus
+      0.06 +
+        phi * (Math.PI / 2) * (isMobile ? 0.76 : 1) +
+        (breathe + pose.roll) * focus
     );
     const tapElapsed = (now - tapFeedbackT) / 1000;
     const tapScale =
       i === tapFeedbackBook && tapElapsed >= 0 && tapElapsed < 0.18
         ? 1 - Math.sin((tapElapsed / 0.18) * Math.PI) * 0.022
         : 1;
-    w.scale.setScalar((0.82 + 0.18 * focus) * tapScale);
+    const restingScale = isMobile ? 0.72 : 0.82;
+    w.scale.setScalar(
+      (restingScale + (1 - restingScale) * focus) * tapScale
+    );
 
     // Side books recede tonally while the centered cover keeps its true brand
     // color. This avoids transparent-material sorting artifacts.
-    const brightness = 0.78 + focus * 0.22;
+    const restingBrightness = isMobile ? 0.68 : 0.78;
+    const brightness = restingBrightness + focus * (1 - restingBrightness);
     bookMaterialColors[i].forEach(({ material, base }) => {
       material.color.copy(base).multiplyScalar(brightness);
     });
