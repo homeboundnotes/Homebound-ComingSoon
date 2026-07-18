@@ -1,0 +1,264 @@
+:root {
+  --green: #3a4f3c;
+  --green-700: #29382b;
+  --green-800: #202b21;
+  --cream: #ebdbc5;
+  --paper: #fdfbf9;
+  --paper-deep: #f2e7d8;
+  --maroon: #550c18;
+  --purple: #89608e;
+  --orange: #f96900;
+  --ink: var(--green-800);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: "Mozilla Text", Georgia, serif;
+  color: var(--ink);
+  background: var(--paper);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ---------- instagram ---------- */
+
+.instagram-follow {
+  position: relative;
+  z-index: 1;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid rgba(58, 79, 60, 0.28);
+  border-radius: 999px;
+  color: var(--green);
+  background: rgba(253, 251, 249, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  pointer-events: auto;
+  transition: color 180ms ease, background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+.instagram-follow svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.instagram-follow .instagram-dot {
+  fill: currentColor;
+  stroke: none;
+}
+
+.instagram-follow:hover,
+.instagram-follow:focus-visible {
+  color: var(--paper);
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.instagram-follow:focus-visible {
+  outline: 2px solid var(--green-800);
+  outline-offset: 3px;
+}
+
+.instagram-copy-mobile {
+  display: none;
+}
+
+/* ---------- 3d stage ---------- */
+
+.stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+#scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform: translateY(24px);
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+/* ---------- bottom text cluster ---------- */
+
+.bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* The Figma headline extends 51.8px below a 1440x1024 frame. */
+  bottom: clamp(-51.8px, -3.595vw, -14px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.brand-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.lockup {
+  width: 100%;
+  height: clamp(4.2rem, 5.5556vw, 80px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.8rem, 1.1111vw, 1rem);
+}
+
+.lockup-logo {
+  width: clamp(170px, 15.2778vw, 220px);
+  height: auto;
+  display: block;
+  opacity: 0;
+  animation: appear 1s ease 0.2s forwards;
+}
+
+.lockup-note {
+  font-size: clamp(0.9rem, 1.3889vw, 1.25rem);
+  line-height: 0.85;
+  color: var(--green-700);
+  white-space: nowrap;
+  opacity: 0;
+  animation: appear 1s ease 0.3s forwards;
+}
+
+/* ---------- giant cropped headline ---------- */
+
+.giant {
+  width: 100%;
+  font-size: clamp(4rem, 15.9722vw, 14.375rem);
+  font-weight: 600;
+  letter-spacing: -0.030313em;
+  line-height: 0.72752;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--green-800);
+  opacity: 0;
+  animation: appear-up 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.45s forwards;
+}
+
+@keyframes appear {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes appear-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.16em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 860px) {
+  .instagram-follow {
+    min-height: 34px;
+    gap: 6px;
+    padding: 0 11px;
+    font-size: 12px;
+  }
+
+  .instagram-follow svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .instagram-copy-desktop {
+    display: none;
+  }
+
+  .instagram-copy-mobile {
+    display: inline;
+  }
+
+  #scene {
+    transform: translateY(clamp(72px, calc(9.4787vh + 16px), 96px));
+  }
+
+  .bottom {
+    bottom: -10px;
+    gap: 24px;
+  }
+
+  .brand-actions {
+    gap: 8px;
+  }
+
+  .lockup {
+    height: auto;
+    gap: 8px;
+  }
+
+  .lockup-logo {
+    width: clamp(140px, 38.4615vw, 150px);
+  }
+
+  .lockup-note {
+    font-size: clamp(13px, 3.5897vw, 14px);
+    line-height: 1.2;
+  }
+
+  .giant {
+    font-size: clamp(55px, 16vw, 64px);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    line-height: 0.75;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lockup-logo,
+  .lockup-note,
+  .giant {
+    animation: none;
+    opacity: 1;
+  }
+
+  .giant {
+    transform: none;
+  }
+}
