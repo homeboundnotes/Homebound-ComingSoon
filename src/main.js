@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
+import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 
 // ---------------------------------------------------------------- constants
 
@@ -31,6 +31,16 @@ const STACK = [
   { color: BRAND.maroon, mark: "light" },
   { color: BRAND.cream, mark: "dark" },
   { color: BRAND.green, mark: "light" },
+];
+
+// Fixed per-color landing nuances. These are deliberately tiny and blend in
+// only near center, preserving a shared optical anchor without cloned poses.
+const LANDING_POSES = [
+  { x: -0.018, y: 0.006, pitch: 0.008, yaw: -0.26, roll: 0.012, phase: 0.6 },
+  { x: 0.016, y: -0.008, pitch: -0.006, yaw: 0.18, roll: -0.01, phase: 1.4 },
+  { x: -0.01, y: -0.004, pitch: 0.004, yaw: -0.12, roll: 0.008, phase: 2.2 },
+  { x: 0.022, y: 0.008, pitch: -0.008, yaw: 0.24, roll: -0.012, phase: 3.1 },
+  { x: 0.006, y: 0.002, pitch: 0.003, yaw: -0.2, roll: -0.005, phase: 0 },
 ];
 
 const reducedMotion = window.matchMedia(
@@ -396,7 +406,6 @@ const renderer = new THREE.WebGLRenderer({
   antialias: true,
   alpha: true,
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.98;
 
@@ -405,7 +414,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 // synthetic room lighting immediately, upgraded to a studio HDRI once loaded
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.45;
-new RGBELoader().load(
+new HDRLoader().load(
   "/env/studio.hdr",
   (t) => {
     scene.environment = pmrem.fromEquirectangular(t).texture;
@@ -439,6 +448,22 @@ const REST_YAW = -0.3; // resting attitude: turned so the fore edge recedes
 const TRAVEL = 1.9; // world-units of travel per scroll step
 
 const books = STACK.map((spec) => makeBook(spec));
+const bookMaterialColors = books.map((book) => {
+  const seen = new Set();
+  const colors = [];
+  book.traverse((node) => {
+    if (!node.isMesh) return;
+    const materials = Array.isArray(node.material)
+      ? node.material
+      : [node.material];
+    materials.forEach((material) => {
+      if (!material?.color || seen.has(material)) return;
+      seen.add(material);
+      colors.push({ material, base: material.color.clone() });
+    });
+  });
+  return colors;
+});
 const shadows = [];
 const wrappers = books.map((book) => {
   const w = new THREE.Group();
@@ -468,6 +493,10 @@ const wrappers = books.map((book) => {
 function frame() {
   const w = stage.clientWidth;
   const h = stage.clientHeight;
+  // Mobile screens gain little from a 2x WebGL buffer here; 1.5x keeps the
+  // cloth and stitching crisp while materially reducing GPU work.
+  const pixelRatioCap = w <= 860 ? 1.5 : 2;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap));
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const zoomOut = camera.aspect < 1 ? 1.5 : camera.aspect < 1.35 ? 1.2 : 1.05;
@@ -521,6 +550,8 @@ let lastY = 0;
 let lastMoveT = 0;
 let dragVelocity = 0;
 let shelfVelocity = 0;
+let tapFeedbackT = -1e9;
+let tapFeedbackBook = -1;
 let downAt = null;
 
 stage.addEventListener(
@@ -543,6 +574,11 @@ canvas.addEventListener("pointerdown", (e) => {
   lastMoveT = now;
   dragVelocity = 0;
   canvas.style.cursor = "grabbing";
+  if (hitsBook(e)) {
+    tapFeedbackT = now;
+    tapFeedbackBook =
+      ((Math.round(sPos) % books.length) + books.length) % books.length;
+  }
   markInteraction();
 });
 
@@ -594,12 +630,16 @@ window.addEventListener("pointerup", (e) => {
 
 // ---------------------------------------------------------------- loop
 
-const clock = new THREE.Clock();
-function loop() {
-  requestAnimationFrame(loop);
+const timer = new THREE.Timer();
+timer.connect(document);
+let frameRequest = 0;
+
+function loop(timestamp) {
+  frameRequest = requestAnimationFrame(loop);
+  timer.update(timestamp);
   const now = performance.now();
-  const dt = Math.min(clock.getDelta(), 1 / 30);
-  const t = clock.elapsedTime;
+  const dt = Math.min(timer.getDelta(), 1 / 30);
+  const t = timer.getElapsed();
 
   // autoplay: after a quiet spell, walk the shelf forward one notebook
   if (
@@ -633,17 +673,19 @@ function loop() {
     sPos += shelfVelocity * dt;
   }
 
-  // the book holding the spotlight turns gently side to side, catching light
-  const sway = reducedMotion
-    ? 0
-    : Math.sin(t * 0.45) * 0.14 + Math.sin(t * 0.9) * 0.045;
-  const bob = reducedMotion ? 0 : Math.sin(t * 0.85) * 0.02;
-  const breathe = reducedMotion ? 0 : Math.sin(t * 0.6) * 0.015;
+  // Premium idle choreography: a long, quiet movement followed by a genuine
+  // still interval instead of perpetual mechanical swaying.
+  const idleCycle = t % 11;
+  const idleEnvelope =
+    reducedMotion || idleCycle >= 6.5
+      ? 0
+      : Math.sin((idleCycle / 6.5) * Math.PI) ** 2;
   const n = books.length;
 
   books.forEach((book, i) => {
     const w = wrappers[i];
     const shadow = shadows[i];
+    const pose = LANDING_POSES[i];
     // nearest slot congruent to i (mod count) — this is what makes it infinite
     const k = Math.round((sPos - i) / n) * n + i;
     const phi = k - sPos;
@@ -654,19 +696,59 @@ function loop() {
     w.visible = true;
     // how close this book is to holding center stage
     const focus = THREE.MathUtils.clamp(1 - Math.abs(phi), 0, 1);
+    const poseT = t + pose.phase;
+    const sway = reducedMotion
+      ? 0
+      : (Math.sin(poseT * 0.32) * 0.1 +
+          Math.sin(poseT * 0.64) * 0.025) *
+        idleEnvelope;
+    const bob = reducedMotion
+      ? 0
+      : Math.sin(poseT * 0.52) * 0.014 * idleEnvelope;
+    const breathe = reducedMotion
+      ? 0
+      : Math.sin(poseT * 0.42) * 0.01 * idleEnvelope;
     // horizontal shelf: books roll in from the side, stand at center
     const spacing = TRAVEL * (mobileMQ.matches ? 0.85 : 1);
-    w.position.set(phi * spacing, 0.3 + bob * focus, -0.9 * phi * phi);
-    w.rotation.set(
-      UPRIGHT_X,
-      REST_YAW + sway * focus,
-      0.06 + phi * (Math.PI / 2) + breathe * focus
+    w.position.set(
+      phi * spacing + pose.x * focus,
+      0.3 + (bob + pose.y) * focus,
+      -0.9 * phi * phi
     );
-    w.scale.setScalar(0.82 + 0.18 * focus);
-    shadow.material.opacity = 0.035 + focus * 0.105;
+    w.rotation.set(
+      UPRIGHT_X + pose.pitch * focus,
+      THREE.MathUtils.lerp(REST_YAW, pose.yaw, focus) + sway * focus,
+      0.06 + phi * (Math.PI / 2) + (breathe + pose.roll) * focus
+    );
+    const tapElapsed = (now - tapFeedbackT) / 1000;
+    const tapScale =
+      i === tapFeedbackBook && tapElapsed >= 0 && tapElapsed < 0.18
+        ? 1 - Math.sin((tapElapsed / 0.18) * Math.PI) * 0.022
+        : 1;
+    w.scale.setScalar((0.82 + 0.18 * focus) * tapScale);
+
+    // Side books recede tonally while the centered cover keeps its true brand
+    // color. This avoids transparent-material sorting artifacts.
+    const brightness = 0.78 + focus * 0.22;
+    bookMaterialColors[i].forEach(({ material, base }) => {
+      material.color.copy(base).multiplyScalar(brightness);
+    });
+
+    shadow.material.opacity = 0.035 + focus * 0.135;
     shadow.scale.setScalar(0.92 + focus * 0.12);
   });
 
   renderer.render(scene, camera);
 }
-loop();
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    if (frameRequest) cancelAnimationFrame(frameRequest);
+    frameRequest = 0;
+  } else if (!frameRequest) {
+    timer.reset();
+    frameRequest = requestAnimationFrame(loop);
+  }
+});
+
+frameRequest = requestAnimationFrame(loop);
