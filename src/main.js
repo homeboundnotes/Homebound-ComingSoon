@@ -117,9 +117,26 @@ function coverBumpTexture() {
   return tex;
 }
 
+function contactShadowTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext("2d");
+  const gradient = ctx.createRadialGradient(128, 128, 8, 128, 128, 124);
+  gradient.addColorStop(0, "rgba(32,43,33,0.5)");
+  gradient.addColorStop(0.48, "rgba(32,43,33,0.22)");
+  gradient.addColorStop(1, "rgba(32,43,33,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 256, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 const edgeTex = paperEdgeTexture();
 const topTex = paperTopTexture();
 const bumpTex = coverBumpTexture();
+const shadowTex = contactShadowTexture();
 
 const texLoader = new THREE.TextureLoader();
 // note: the export names refer to the background they sit on —
@@ -422,10 +439,26 @@ const REST_YAW = -0.3; // resting attitude: turned so the fore edge recedes
 const TRAVEL = 1.9; // world-units of travel per scroll step
 
 const books = STACK.map((spec) => makeBook(spec));
+const shadows = [];
 const wrappers = books.map((book) => {
   const w = new THREE.Group();
   w.rotation.order = "YXZ"; // yaw around world-Y, then the stand-up tilt
-  w.add(book);
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(BOOK.w * 1.3, BOOK.d * 1.22),
+    new THREE.MeshBasicMaterial({
+      map: shadowTex,
+      transparent: true,
+      opacity: 0.14,
+      depthWrite: false,
+      toneMapped: false,
+    })
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = -BOOK.h / 2 - 0.035;
+  shadow.renderOrder = -1;
+  shadow.raycast = () => {};
+  shadows.push(shadow);
+  w.add(shadow, book);
   scene.add(w);
   return w;
 });
@@ -485,6 +518,9 @@ function markInteraction() {
 let dragging = false;
 let lastX = 0;
 let lastY = 0;
+let lastMoveT = 0;
+let dragVelocity = 0;
+let shelfVelocity = 0;
 let downAt = null;
 
 stage.addEventListener(
@@ -499,24 +535,36 @@ stage.addEventListener(
 );
 
 canvas.addEventListener("pointerdown", (e) => {
-  downAt = { x: e.clientX, y: e.clientY, t: performance.now() };
+  const now = performance.now();
+  downAt = { x: e.clientX, y: e.clientY, t: now };
   dragging = true;
   lastX = e.clientX;
   lastY = e.clientY;
+  lastMoveT = now;
+  dragVelocity = 0;
   canvas.style.cursor = "grabbing";
   markInteraction();
 });
 
 window.addEventListener("pointermove", (e) => {
   if (!dragging) return;
+  const now = performance.now();
   const dx = e.clientX - lastX;
+  const moveDt = Math.max(now - lastMoveT, 8);
   lastX = e.clientX;
   lastY = e.clientY;
+  lastMoveT = now;
   markInteraction();
   // sideways drags walk the shelf
-  sTarget += -dx * (mobileMQ.matches ? 0.0055 : 0.003);
+  const shelfDelta = -dx * (mobileMQ.matches ? 0.0055 : 0.003);
+  sTarget += shelfDelta;
+  dragVelocity = THREE.MathUtils.lerp(
+    dragVelocity,
+    shelfDelta / moveDt,
+    0.35
+  );
   if (Math.abs(dx) > 2) {
-    lastScrollT = performance.now();
+    lastScrollT = now;
   }
 });
 
@@ -529,8 +577,18 @@ window.addEventListener("pointerup", (e) => {
   if (moved < 6 && performance.now() - downAt.t < 500 && hitsBook(e)) {
     // a click walks the shelf forward one notebook
     sTarget = Math.round(sTarget) + 1;
+    shelfVelocity = 0;
     lastScrollT = -1e9;
+  } else {
+    // Project a short, capped continuation from the release velocity. Slow
+    // drags remain precise; a deliberate flick can carry into the next book.
+    const momentum = THREE.MathUtils.clamp(dragVelocity * 175, -0.85, 0.85);
+    if (Math.abs(momentum) > 0.025) {
+      sTarget += momentum;
+      lastScrollT = performance.now();
+    }
   }
+  dragVelocity = 0;
   downAt = null;
 });
 
@@ -540,7 +598,8 @@ const clock = new THREE.Clock();
 function loop() {
   requestAnimationFrame(loop);
   const now = performance.now();
-  const t = clock.getElapsedTime();
+  const dt = Math.min(clock.getDelta(), 1 / 30);
+  const t = clock.elapsedTime;
 
   // autoplay: after a quiet spell, walk the shelf forward one notebook
   if (
@@ -555,10 +614,24 @@ function loop() {
 
   // ease toward the target, then snap the nearest notebook upright
   if (now - lastScrollT > 260 && !dragging) {
-    sTarget += (Math.round(sTarget) - sTarget) * 0.07;
+    sTarget = THREE.MathUtils.damp(sTarget, Math.round(sTarget), 4.35, dt);
+    if (Math.abs(Math.round(sTarget) - sTarget) < 0.0001) {
+      sTarget = Math.round(sTarget);
+    }
   }
-  const shelfEase = mobileMQ.matches ? 0.16 : 0.11;
-  sPos += (sTarget - sPos) * (reducedMotion ? 1 : shelfEase);
+  if (reducedMotion) {
+    sPos = sTarget;
+    shelfVelocity = 0;
+  } else {
+    // A lightly under-damped spring gives paper-like follow-through and a
+    // restrained 2–4% overshoot, independent of 60Hz/120Hz refresh rates.
+    const stiffness = mobileMQ.matches ? 220 : 170;
+    const damping = mobileMQ.matches ? 22 : 18;
+    const acceleration = (sTarget - sPos) * stiffness - shelfVelocity * damping;
+    shelfVelocity += acceleration * dt;
+    shelfVelocity = THREE.MathUtils.clamp(shelfVelocity, -8, 8);
+    sPos += shelfVelocity * dt;
+  }
 
   // the book holding the spotlight turns gently side to side, catching light
   const sway = reducedMotion
@@ -570,6 +643,7 @@ function loop() {
 
   books.forEach((book, i) => {
     const w = wrappers[i];
+    const shadow = shadows[i];
     // nearest slot congruent to i (mod count) — this is what makes it infinite
     const k = Math.round((sPos - i) / n) * n + i;
     const phi = k - sPos;
@@ -589,6 +663,8 @@ function loop() {
       0.06 + phi * (Math.PI / 2) + breathe * focus
     );
     w.scale.setScalar(0.82 + 0.18 * focus);
+    shadow.material.opacity = 0.035 + focus * 0.105;
+    shadow.scale.setScalar(0.92 + focus * 0.12);
   });
 
   renderer.render(scene, camera);
