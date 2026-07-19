@@ -742,9 +742,10 @@ function loop(timestamp) {
       i === tapFeedbackBook && tapElapsed >= 0 && tapElapsed < 0.18
         ? 1 - Math.sin((tapElapsed / 0.18) * Math.PI) * 0.022
         : 1;
-    const restingScale = isMobile ? 0.72 : 0.82;
+    const restingScale = isMobile ? 0.66 : 0.82;
+    const focusedScale = isMobile ? 0.92 : 1;
     w.scale.setScalar(
-      (restingScale + (1 - restingScale) * focus) * tapScale
+      (restingScale + (focusedScale - restingScale) * focus) * tapScale
     );
 
     // Side books recede tonally while the centered cover keeps its true brand

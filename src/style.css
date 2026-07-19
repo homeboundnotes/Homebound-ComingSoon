@@ -42,19 +42,20 @@ body {
 .instagram-follow {
   position: relative;
   z-index: 1;
-  min-height: 36px;
+  min-height: 42px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 13px;
-  border: 1px solid rgba(58, 79, 60, 0.28);
+  gap: 9px;
+  padding: 0 17px;
+  border: 1px solid var(--green);
   border-radius: 999px;
-  color: var(--green);
-  background: rgba(253, 251, 249, 0.82);
+  color: var(--paper);
+  background: var(--green);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  font-size: 13px;
-  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(32, 43, 33, 0.12);
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1;
   text-decoration: none;
   pointer-events: auto;
@@ -63,8 +64,8 @@ body {
 }
 
 .instagram-follow svg {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
@@ -78,8 +79,8 @@ body {
 .instagram-follow:hover,
 .instagram-follow:focus-visible {
   color: var(--paper);
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--green-800);
+  border-color: var(--green-800);
 }
 
 .instagram-follow:focus-visible {
@@ -96,7 +97,7 @@ body {
 .stage {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
 }
 
 #scene {
@@ -105,46 +106,43 @@ body {
   width: 100%;
   height: 100%;
   display: block;
-  transform: translateY(24px);
+  transform: translateY(72px);
   cursor: grab;
   touch-action: pan-y;
 }
 
-/* ---------- bottom text cluster ---------- */
+/* ---------- corner brand bar ---------- */
 
-.bottom {
+.topbar {
   position: absolute;
-  left: 0;
-  right: 0;
-  /* The Figma headline extends 51.8px below a 1440x1024 frame. */
-  bottom: clamp(-51.8px, -3.595vw, -14px);
-  z-index: 2;
+  top: clamp(24px, 3vw, 44px);
+  left: clamp(24px, 3.2vw, 52px);
+  right: clamp(24px, 3.2vw, 52px);
+  z-index: 3;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
   pointer-events: none;
 }
 
-.brand-actions {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
+.bottom .instagram-follow {
+  position: fixed;
+  top: clamp(24px, 3vw, 44px);
+  right: clamp(24px, 3.2vw, 52px);
+  z-index: 3;
+  flex: 0 0 auto;
+  pointer-events: auto;
 }
 
 .lockup {
-  width: 100%;
-  height: clamp(4.2rem, 5.5556vw, 80px);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: clamp(0.8rem, 1.1111vw, 1rem);
+  align-items: flex-start;
+  gap: 7px;
 }
 
 .lockup-logo {
-  width: clamp(170px, 15.2778vw, 220px);
+  width: clamp(128px, 10.4vw, 150px);
   height: auto;
   display: block;
   opacity: 0;
@@ -152,27 +150,62 @@ body {
 }
 
 .lockup-note {
-  font-size: clamp(0.9rem, 1.3889vw, 1.25rem);
-  line-height: 0.85;
+  font-size: clamp(10px, 0.83vw, 12px);
+  line-height: 1.2;
   color: var(--green-700);
   white-space: nowrap;
   opacity: 0;
   animation: appear 1s ease 0.3s forwards;
 }
 
-/* ---------- giant cropped headline ---------- */
+/* ---------- stacked editorial headline ---------- */
+
+.bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: clamp(30px, 3.2vw, 48px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.bottom .instagram-follow {
+  pointer-events: auto;
+}
 
 .giant {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  font-size: clamp(4rem, 15.9722vw, 14.375rem);
-  font-weight: 600;
-  letter-spacing: -0.030313em;
-  line-height: 0.72752;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: Impact, "Arial Narrow", "Helvetica Neue", sans-serif;
+  font-size: clamp(100px, 13.6vw, 196px);
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  line-height: 0.84;
   text-align: center;
-  white-space: nowrap;
+  text-transform: uppercase;
   color: var(--green-800);
   opacity: 0;
   animation: appear-up 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.45s forwards;
+}
+
+.giant-line {
+  display: block;
+  white-space: nowrap;
+  transform-origin: center;
+}
+
+.giant-line-coming {
+  transform: rotate(-1deg) scaleX(1.35);
+}
+
+.giant-line-soon {
+  transform: translateX(-2.5vw) rotate(1.15deg) scaleX(1.48);
 }
 
 @keyframes appear {
@@ -196,15 +229,16 @@ body {
 
 @media (max-width: 860px) {
   .instagram-follow {
-    min-height: 34px;
-    gap: 6px;
-    padding: 0 11px;
-    font-size: 12px;
+    min-height: 44px;
+    gap: 7px;
+    padding: 0 18px;
+    font-weight: 500;
+    font-size: 14px;
   }
 
   .instagram-follow svg {
-    width: 15px;
-    height: 15px;
+    width: 17px;
+    height: 17px;
   }
 
   .instagram-copy-desktop {
@@ -215,38 +249,56 @@ body {
     display: inline;
   }
 
-  #scene {
-    transform: translateY(clamp(72px, calc(9.4787vh + 16px), 96px));
+  .topbar {
+    top: max(34px, calc(env(safe-area-inset-top) + 10px));
+    left: 0;
+    right: 0;
+    justify-content: center;
   }
 
-  .bottom {
-    bottom: -10px;
-    gap: 24px;
-  }
-
-  .brand-actions {
-    gap: 8px;
+  .bottom .instagram-follow {
+    position: relative;
+    top: auto;
+    right: auto;
   }
 
   .lockup {
-    height: auto;
+    align-items: center;
     gap: 8px;
   }
 
   .lockup-logo {
-    width: clamp(140px, 38.4615vw, 150px);
+    width: 160px;
   }
 
   .lockup-note {
-    font-size: clamp(13px, 3.5897vw, 14px);
-    line-height: 1.2;
+    max-width: none;
+    font-size: 12px;
+    line-height: 1.3;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  #scene {
+    transform: translateY(clamp(64px, 3vh, 56px));
+  }
+
+  .bottom {
+    bottom: max(52px, calc(env(safe-area-inset-bottom) + 18px));
+    gap: 72px;
   }
 
   .giant {
-    font-size: clamp(55px, 16vw, 64px);
-    font-weight: 500;
-    letter-spacing: -0.035em;
-    line-height: 0.75;
+    font-size: clamp(80px, 22.8vw, 94px);
+    line-height: 0.88;
+  }
+
+  .giant-line-coming {
+    transform: rotate(-0.8deg) scaleX(1.02);
+  }
+
+  .giant-line-soon {
+    transform: rotate(1.1deg) scaleX(1.06);
   }
 }
 
