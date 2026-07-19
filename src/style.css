@@ -205,7 +205,7 @@ body {
 }
 
 .giant-line-soon {
-  transform: translateX(-2.5vw) rotate(1.15deg) scaleX(1.48);
+  transform: translateX(-1.5vw) rotate(2.15deg) scaleX(1.48) translateY(1.5vw);
 }
 
 @keyframes appear {
@@ -298,7 +298,7 @@ body {
   }
 
   .giant-line-soon {
-    transform: rotate(1.1deg) scaleX(1.06);
+    transform: translateY(2px) rotate(2deg) scaleX(1.06);
   }
 }
 
