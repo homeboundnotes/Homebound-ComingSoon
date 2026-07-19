@@ -553,11 +553,15 @@ let shelfVelocity = 0;
 let tapFeedbackT = -1e9;
 let tapFeedbackBook = -1;
 let downAt = null;
+let activePointerId = null;
 
 stage.addEventListener(
   "wheel",
   (e) => {
     e.preventDefault();
+    // Phones use one consistent captured touch path. Ignoring synthesized
+    // wheel events prevents the same gesture from being applied twice.
+    if (mobileMQ.matches) return;
     sTarget += e.deltaY * 0.0028;
     lastScrollT = performance.now();
     markInteraction();
@@ -566,7 +570,10 @@ stage.addEventListener(
 );
 
 canvas.addEventListener("pointerdown", (e) => {
+  if (!e.isPrimary || activePointerId !== null) return;
   const now = performance.now();
+  activePointerId = e.pointerId;
+  canvas.setPointerCapture?.(e.pointerId);
   downAt = { x: e.clientX, y: e.clientY, t: now };
   dragging = true;
   lastX = e.clientX;
@@ -583,34 +590,46 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 
 window.addEventListener("pointermove", (e) => {
-  if (!dragging) return;
+  if (!dragging || e.pointerId !== activePointerId) return;
   const now = performance.now();
   const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
   const moveDt = Math.max(now - lastMoveT, 8);
   lastX = e.clientX;
   lastY = e.clientY;
   lastMoveT = now;
   markInteraction();
-  // sideways drags walk the shelf
-  const shelfDelta = -dx * (mobileMQ.matches ? 0.0055 : 0.003);
+  // Mobile vertical swipes follow the autoplay's visual direction: swiping
+  // up moves the notebooks from right to left. Desktop stays horizontal.
+  const isMobileGesture = mobileMQ.matches;
+  const gestureDelta = isMobileGesture ? dy : dx;
+  const shelfDelta = isMobileGesture
+    ? -gestureDelta * 0.006
+    : -gestureDelta * 0.003;
   sTarget += shelfDelta;
   dragVelocity = THREE.MathUtils.lerp(
     dragVelocity,
     shelfDelta / moveDt,
     0.35
   );
-  if (Math.abs(dx) > 2) {
+  if (Math.abs(gestureDelta) > 2) {
     lastScrollT = now;
   }
 });
 
 window.addEventListener("pointerup", (e) => {
-  if (!dragging) return;
+  if (!dragging || e.pointerId !== activePointerId) return;
   dragging = false;
   canvas.style.cursor = "grab";
-  if (!downAt) return;
-  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
-  if (moved < 6 && performance.now() - downAt.t < 500 && hitsBook(e)) {
+  const moved = downAt
+    ? Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y)
+    : Infinity;
+  if (
+    downAt &&
+    moved < 6 &&
+    performance.now() - downAt.t < 500 &&
+    hitsBook(e)
+  ) {
     // a click walks the shelf forward one notebook
     sTarget = Math.round(sTarget) + 1;
     shelfVelocity = 0;
@@ -624,8 +643,21 @@ window.addEventListener("pointerup", (e) => {
       lastScrollT = performance.now();
     }
   }
+  if (canvas.hasPointerCapture?.(e.pointerId)) {
+    canvas.releasePointerCapture(e.pointerId);
+  }
   dragVelocity = 0;
   downAt = null;
+  activePointerId = null;
+});
+
+window.addEventListener("pointercancel", (e) => {
+  if (e.pointerId !== activePointerId) return;
+  dragging = false;
+  dragVelocity = 0;
+  downAt = null;
+  activePointerId = null;
+  canvas.style.cursor = "grab";
 });
 
 // ---------------------------------------------------------------- loop

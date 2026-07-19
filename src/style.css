@@ -282,6 +282,7 @@ body {
 
   #scene {
     transform: translateY(clamp(64px, 3vh, 56px));
+    touch-action: none;
   }
 
   .bottom {
