@@ -599,13 +599,15 @@ window.addEventListener("pointermove", (e) => {
   lastY = e.clientY;
   lastMoveT = now;
   markInteraction();
-  // Mobile vertical swipes follow the autoplay's visual direction: swiping
-  // up moves the notebooks from right to left. Desktop stays horizontal.
+  // On mobile, follow the dominant gesture axis. The existing vertical
+  // mapping stays unchanged, while horizontal drags move the notebooks in
+  // the same direction as the pointer. Desktop remains horizontal-only.
   const isMobileGesture = mobileMQ.matches;
-  const gestureDelta = isMobileGesture ? dy : dx;
-  const shelfDelta = isMobileGesture
-    ? -gestureDelta * 0.006
-    : -gestureDelta * 0.003;
+  const isHorizontalMobileDrag =
+    isMobileGesture && Math.abs(dx) > Math.abs(dy);
+  const gestureDelta =
+    !isMobileGesture || isHorizontalMobileDrag ? dx : dy;
+  const shelfDelta = -gestureDelta * (isMobileGesture ? 0.006 : 0.003);
   sTarget += shelfDelta;
   dragVelocity = THREE.MathUtils.lerp(
     dragVelocity,
