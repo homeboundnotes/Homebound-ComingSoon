@@ -24,7 +24,7 @@ body {
 }
 
 body {
-  font-family: "Mozilla Text", Georgia, serif;
+  font-family: "Archivo", Arial, sans-serif;
   color: var(--ink);
   background: var(--paper);
   overflow: hidden;
@@ -183,11 +183,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-family: Impact, "Arial Narrow", "Helvetica Neue", sans-serif;
+  font-family: "Archivo Black", "Archivo", Arial, sans-serif;
   font-size: clamp(100px, 13.6vw, 196px);
-  font-weight: 900;
+  font-weight: 400;
   letter-spacing: -0.035em;
-  line-height: 0.84;
+  line-height: 0.80;
   text-align: center;
   text-transform: uppercase;
   color: var(--muted-headline);
@@ -202,11 +202,11 @@ body {
 }
 
 .giant-line-coming {
-  transform: rotate(-1deg) scaleX(1.35);
+  transform: rotate(-1deg) scaleX(0.82);
 }
 
 .giant-line-soon {
-  transform: translateX(-1.5vw) rotate(2.15deg) scaleX(1.48) translateY(1.5vw);
+  transform: translateX(-1.5vw) rotate(2.15deg) scaleX(0.88) translateY(0.35vw);
 }
 
 @keyframes appear {
@@ -292,15 +292,15 @@ body {
 
   .giant {
     font-size: clamp(80px, 22.8vw, 94px);
-    line-height: 0.88;
+    line-height: 0.80;
   }
 
   .giant-line-coming {
-    transform: rotate(-0.8deg) scaleX(1.02);
+    transform: rotate(-0.8deg) scaleX(0.82);
   }
 
   .giant-line-soon {
-    transform: translateY(2px) rotate(2deg) scaleX(1.06);
+    transform: rotate(2deg) scaleX(0.88);
   }
 }
 
