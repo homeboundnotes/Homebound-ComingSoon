@@ -9,6 +9,7 @@
   --purple: #89608e;
   --orange: #f96900;
   --ink: var(--green-800);
+  --muted-headline: #DFDFDF;
 }
 
 * {
@@ -189,7 +190,7 @@ body {
   line-height: 0.84;
   text-align: center;
   text-transform: uppercase;
-  color: var(--green-800);
+  color: var(--muted-headline);
   opacity: 0;
   animation: appear-up 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.45s forwards;
 }
